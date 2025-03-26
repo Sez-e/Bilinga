@@ -1,0 +1,10 @@
+﻿services:
+  bilinga_api:
+    container_name: "BILI_BILINGU_PO_ZHOPE"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8080:8080"

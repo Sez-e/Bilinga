@@ -13,5 +13,6 @@ namespace backend.Data
         
         public DbSet<Article> Articles { get; set; }
         
+        public DbSet<Dictionary> Dictionary { get; set; }
     }
 }
