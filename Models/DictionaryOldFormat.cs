@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace bili.Models
+namespace backend.Models
 {
     public class DictionaryOldFormat
     {

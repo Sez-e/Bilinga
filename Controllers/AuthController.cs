@@ -84,7 +84,7 @@ namespace backend.Controllers
                 return Unauthorized("Неверное имя пользователя или пароль.");
             }
 
-            var token = _jwtService.GenerateToken(user.Username);
+            var token = _jwtService.GenerateToken(user.Username, user.Id);
             return Ok(new { Token = token });
         }
     }

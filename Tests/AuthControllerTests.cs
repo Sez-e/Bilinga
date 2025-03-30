@@ -1,4 +1,3 @@
-using System.Threading.Tasks;
 using backend.Controllers;
 using backend.Data;
 using backend.Models;
@@ -128,6 +127,7 @@ public class AuthControllerTests
     {
         var user = new User
         {
+            Id = 1,
             Username = "validuser",
             Email = "validuser@example.com",
             Password = BCrypt.Net.BCrypt.HashPassword("password")
@@ -135,7 +135,9 @@ public class AuthControllerTests
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
 
-        _mockJwtService.Setup(j => j.GenerateToken(user.Username)).Returns("fake-jwt-token");
+        _mockJwtService
+            .Setup(j => j.GenerateToken(user.Username, user.Id))
+            .Returns("fake-jwt-token");
 
         var request = new AuthController.LoginRequest { Username = "validuser", Password = "password" };
         var result = await _controller.Login(request) as OkObjectResult;

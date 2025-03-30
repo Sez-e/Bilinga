@@ -1,4 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
+using backend.Models;
+using Microsoft.AspNetCore.Authorization;
+using backend.Data;
 
 namespace backend.Controllers
 {
@@ -7,10 +10,12 @@ namespace backend.Controllers
     public class ArticlesController : ControllerBase
     {
         private readonly ArticleService _articleService;
+        private readonly AppDbContext _context;
 
-        public ArticlesController(ArticleService articleService)
+        public ArticlesController(ArticleService articleService, AppDbContext context)
         {
             _articleService = articleService;
+            _context = context;
         }
 
         [HttpGet]
@@ -44,6 +49,150 @@ namespace backend.Controllers
                 return NotFound();
             }
             return Ok(article);
+        }
+
+        [HttpPost]
+        [Authorize]
+        public async Task<IActionResult> Create([FromBody] CreateArticle createdArticle)
+        {
+            if (string.IsNullOrEmpty(createdArticle.Title) || 
+                string.IsNullOrEmpty(createdArticle.Content) || 
+                string.IsNullOrEmpty(createdArticle.Level))
+            {
+                return BadRequest("Title, Content and Level are required.");
+            }
+
+            // Получаем UserId из контекста пользователя
+            var userIdClaim = User.FindFirst("id")?.Value;
+            if (userIdClaim == null)
+            {
+                return Unauthorized("User is not authenticated.");
+            }
+
+            var userId = int.Parse(userIdClaim);
+            
+            // Находим пользователя для получения username
+            var user = _context.Users.Find(userId);
+            if (user == null)
+            {
+                return BadRequest("User not found.");
+            }
+
+            try
+            {
+                var article = new Article
+                {
+                    Title = createdArticle.Title,
+                    Content = createdArticle.Content,
+                    Level = createdArticle.Level,
+                    Author = user.Username // Добавляем Author при создании
+                };
+                
+                var newArticle = await _articleService.CreateArticleAsync(article, user.Username);
+                return CreatedAtAction(nameof(GetById), new { id = newArticle.Id }, newArticle);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpPatch("{id}")]
+        [Authorize]
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateArticle updatedArticle)
+        {
+            // Получаем UserId из контекста пользователя
+            var userIdClaim = User.FindFirst("id")?.Value;
+            if (userIdClaim == null)
+            {
+                return Unauthorized("User is not authenticated.");
+            }
+
+            var userId = int.Parse(userIdClaim);
+            var user = _context.Users.Find(userId);
+            if (user == null)
+            {
+                return BadRequest("User not found.");
+            }
+
+            // Проверяем, существует ли статья и является ли пользователь её автором
+            var existingArticles = await _articleService.LoadArticlesAsync();
+            var existingArticle = existingArticles.FirstOrDefault(a => a.Id == id);
+            
+            if (existingArticle == null)
+            {
+                return NotFound();
+            }
+
+            if (existingArticle.Author != user.Username)
+            {
+                return Forbid("You can only update your own articles.");
+            }
+
+            try
+            {
+                var article = new Article
+                {
+                    Title = updatedArticle.Title ?? existingArticle.Title,
+                    Content = updatedArticle.Content ?? existingArticle.Content,
+                    Level = updatedArticle.Level ?? existingArticle.Level,
+                    Author = existingArticle.Author // Добавляем Author при обновлении
+                };
+                
+                var result = await _articleService.UpdateArticleAsync(id, article);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize]
+        public async Task<IActionResult> Delete(int id)
+        {
+            // Получаем UserId из контекста пользователя
+            var userIdClaim = User.FindFirst("id")?.Value;
+            if (userIdClaim == null)
+            {
+                return Unauthorized("User is not authenticated.");
+            }
+
+            var userId = int.Parse(userIdClaim);
+            var user = _context.Users.Find(userId);
+            if (user == null)
+            {
+                return BadRequest("User not found.");
+            }
+
+            // Проверяем, существует ли статья и является ли пользователь её автором
+            var existingArticles = await _articleService.LoadArticlesAsync();
+            var existingArticle = existingArticles.FirstOrDefault(a => a.Id == id);
+            
+            if (existingArticle == null)
+            {
+                return NotFound();
+            }
+
+            if (existingArticle.Author != user.Username)
+            {
+                return Forbid("You can only delete your own articles.");
+            }
+
+            try
+            {
+                var result = await _articleService.DeleteArticleAsync(id);
+                if (result)
+                {
+                    return Ok(new { message = "Article successfully deleted." });
+                }
+                return NotFound();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Internal server error: {ex.Message}");
+            }
         }
     }
 }
