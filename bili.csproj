@@ -37,7 +37,10 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Tests\" />
+      <None Update="dictionary.json">
+        <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      </None>
     </ItemGroup>
 
 </Project>
+
