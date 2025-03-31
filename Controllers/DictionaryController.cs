@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using System.Text.Json;
 using backend.Models;
+using Microsoft.AspNetCore.Authorization;
 
 namespace bili.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class DictionaryController : ControllerBase
