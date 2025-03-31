@@ -12,6 +12,8 @@ public class AuthControllerTests
     private readonly AuthController _controller;
     private readonly AppDbContext _context;
     private readonly Mock<JwtService> _mockJwtService;
+    private readonly Mock<EmailService> _mockEmailService;
+    private readonly Mock<PasswordGeneratorService> _mockPasswordGenerator;
 
     public AuthControllerTests()
     {
@@ -20,7 +22,15 @@ public class AuthControllerTests
             .Options;
         _context = new AppDbContext(options);
         _mockJwtService = new Mock<JwtService>();
-        _controller = new AuthController(_context, _mockJwtService.Object);
+        _mockEmailService = new Mock<EmailService>();
+        _mockPasswordGenerator = new Mock<PasswordGeneratorService>();
+
+        _controller = new AuthController(
+            _context, 
+            _mockJwtService.Object,
+            _mockEmailService.Object,
+            _mockPasswordGenerator.Object
+        );
     }
 
     [Fact]

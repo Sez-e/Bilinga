@@ -9,7 +9,25 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Загружаем переменные окружения из .env файла
 DotNetEnv.Env.Load();
+
+// Проверяем наличие необходимых переменных
+var requiredEnvVars = new[]
+{
+    "EMAIL_SMTP_SERVER",
+    "EMAIL_SMTP_PORT",
+    "EMAIL_FROM",
+    "EMAIL_PASSWORD"
+};
+
+foreach (var envVar in requiredEnvVars)
+{
+    if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(envVar)))
+    {
+        throw new InvalidOperationException($"Missing required environment variable: {envVar}");
+    }
+}
 
 var issuer = Environment.GetEnvironmentVariable("JWT_ISSUER");
 var audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE");
@@ -30,6 +48,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddSingleton(new JwtService(secretKey, issuer, audience));
 builder.Services.AddSingleton(new TGbot(botToken));
+builder.Services.AddScoped<EmailService>();
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -47,6 +66,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddScoped<ArticleService>();
+builder.Services.AddScoped<PasswordGeneratorService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {

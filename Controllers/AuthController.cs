@@ -13,11 +13,19 @@ namespace backend.Controllers
     {
         private readonly AppDbContext _context;
         private readonly JwtService _jwtService;
+        private readonly EmailService _emailService;
+        private readonly PasswordGeneratorService _passwordGenerator;
 
-        public AuthController(AppDbContext context, JwtService jwtService)
+        public AuthController(
+            AppDbContext context, 
+            JwtService jwtService, 
+            EmailService emailService,
+            PasswordGeneratorService passwordGenerator)
         {
             _context = context;
             _jwtService = jwtService;
+            _emailService = emailService;
+            _passwordGenerator = passwordGenerator;
         }
 
         public class RegisterRequest
@@ -86,6 +94,46 @@ namespace backend.Controllers
 
             var token = _jwtService.GenerateToken(user.Username, user.Id);
             return Ok(new { Token = token });
+        }
+
+        public class ForgotPasswordRequest
+        {
+            [Required]
+            [EmailAddress]
+            public string Email { get; set; }
+        }
+
+        [HttpPost("forgot-password")]
+        public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
+        {
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+            if (user == null)
+            {
+                // Возвращаем OK даже если пользователь не найден (для безопасности)
+                return Ok(new { message = "If your email is registered, you will receive a temporary password." });
+            }
+
+            // Генерируем временный пароль
+            var temporaryPassword = _passwordGenerator.GenerateTemporaryPassword();
+            
+            // Обновляем пароль пользователя
+            user.Password = BCrypt.Net.BCrypt.HashPassword(temporaryPassword);
+            await _context.SaveChangesAsync();
+
+            // Отправляем email с временным паролем
+            var emailBody = $@"
+                <h2>Temporary Password</h2>
+                <p>Your temporary password is: <strong>{temporaryPassword}</strong></p>
+                <p>Please change your password after logging in.</p>
+                <p>If you didn't request a password reset, please contact support immediately.</p>";
+
+            await _emailService.SendEmailAsync(
+                user.Email,
+                "Your Temporary Password",
+                emailBody
+            );
+
+            return Ok(new { message = "If your email is registered, you will receive a temporary password." });
         }
     }
 }
