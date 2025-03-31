@@ -7,6 +7,8 @@ using backend.Models;
 using Microsoft.AspNetCore.Mvc;
 using Moq;
 using Xunit;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
 
 public class UsersControllerTests
 {
@@ -68,12 +70,30 @@ public class UsersControllerTests
     }
 
     [Fact]
-    public void Update_UserExists_UpdatesUser()
+    public async Task Update_UserExists_UpdatesUser()
     {
         var existingUser = _users[0];
-        var updatedUser = new UpdateUser { Email = "new@example.com", Username = "NewUser", Score = 50, Password = "newpass" };
-        _mockContext.Setup(c => c.Users.Find(1)).Returns(existingUser);
-        var result = _controller.Update(1, updatedUser) as OkObjectResult;
+        var updatedUser = new UpdateUser { 
+            Email = "new@example.com", 
+            Username = "NewUser", 
+            Score = 50, 
+            Password = "newpass" 
+        };
+        _mockContext.Setup(c => c.Users.FindAsync(It.IsAny<int>())).ReturnsAsync(existingUser);
+        
+        // Имитируем Claims для авторизованного пользователя
+        var claims = new List<Claim> { new Claim("id", "1") };
+        var identity = new ClaimsIdentity(claims);
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+
+        // Act
+        var result = await _controller.Update(updatedUser) as OkObjectResult;
+
+        // Assert
         Assert.NotNull(result);
         Assert.Equal(200, result.StatusCode);
         Assert.Equal("NewUser", existingUser.Username);
@@ -82,25 +102,93 @@ public class UsersControllerTests
     }
 
     [Fact]
-    public void Update_UserDoesNotExist_ReturnsNotFound()
+    public async Task Update_UserDoesNotExist_ReturnsNotFound()
     {
-        _mockContext.Setup(c => c.Users.Find(3)).Returns((User)null);
-        var updatedUser = new UpdateUser { Email = "new@example.com", Username = "NewUser", Score = 50, Password = "newpass" };
-        var result = _controller.Update(3, updatedUser) as NotFoundResult;
+        // Arrange
+        _mockContext.Setup(c => c.Users.FindAsync(It.IsAny<int>())).ReturnsAsync((User)null);
+        var updatedUser = new UpdateUser { 
+            Email = "new@example.com", 
+            Username = "NewUser", 
+            Score = 50, 
+            Password = "newpass" 
+        };
+
+        // Имитируем Claims для авторизованного пользователя
+        var claims = new List<Claim> { new Claim("id", "3") };
+        var identity = new ClaimsIdentity(claims);
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+
+        // Act
+        var result = await _controller.Update(updatedUser) as NotFoundResult;
+
+        // Assert
         Assert.NotNull(result);
         Assert.Equal(404, result.StatusCode);
     }
 
     [Fact]
-    public void Update_UserExists_WithNullPassword_DoesNotChangePassword()
+    public async Task Update_UserExists_WithNullPassword_DoesNotChangePassword()
     {
+        // Arrange
         var existingUser = _users[0];
-        var updatedUser = new UpdateUser { Email = "user1@updated.com", Username = "UpdatedUser", Score = 99, Password = null };
-        _mockContext.Setup(c => c.Users.Find(1)).Returns(existingUser);
+        var updatedUser = new UpdateUser { 
+            Email = "user1@updated.com", 
+            Username = "UpdatedUser", 
+            Score = 99, 
+            Password = null 
+        };
+        _mockContext.Setup(c => c.Users.FindAsync(It.IsAny<int>())).ReturnsAsync(existingUser);
+        
+        // Имитируем Claims для авторизованного пользователя
+        var claims = new List<Claim> { new Claim("id", "1") };
+        var identity = new ClaimsIdentity(claims);
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+
+        // Act
         var oldPassword = existingUser.Password;
-        var result = _controller.Update(1, updatedUser) as OkObjectResult;
+        var result = await _controller.Update(updatedUser) as OkObjectResult;
+
+        // Assert
         Assert.NotNull(result);
         Assert.Equal(oldPassword, existingUser.Password);
+    }
+
+    [Fact]
+    public async Task Update_UserExists_WithEmptyUsername_ReturnsBadRequest()
+    {
+        // Arrange
+        var existingUser = _users[0];
+        var updatedUser = new UpdateUser { 
+            Email = "test@example.com", 
+            Username = "", 
+            Score = 30, 
+            Password = "newpass" 
+        };
+        _mockContext.Setup(c => c.Users.FindAsync(It.IsAny<int>())).ReturnsAsync(existingUser);
+        
+        // Имитируем Claims для авторизованного пользователя
+        var claims = new List<Claim> { new Claim("id", "1") };
+        var identity = new ClaimsIdentity(claims);
+        var claimsPrincipal = new ClaimsPrincipal(identity);
+        _controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = claimsPrincipal }
+        };
+
+        // Act
+        var result = await _controller.Update(updatedUser) as BadRequestResult;
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal(400, result.StatusCode);
     }
 
     [Fact]
@@ -120,17 +208,6 @@ public class UsersControllerTests
         var result = _controller.Delete(3) as NotFoundResult;
         Assert.NotNull(result);
         Assert.Equal(404, result.StatusCode);
-    }
-
-    [Fact]
-    public void Update_UserExists_WithEmptyUsername_ReturnsBadRequest()
-    {
-        var existingUser = _users[0];
-        var updatedUser = new UpdateUser { Email = "test@example.com", Username = "", Score = 30, Password = "newpass" };
-        _mockContext.Setup(c => c.Users.Find(1)).Returns(existingUser);
-        var result = _controller.Update(1, updatedUser) as BadRequestResult;
-        Assert.NotNull(result);
-        Assert.Equal(400, result.StatusCode);
     }
 }
 

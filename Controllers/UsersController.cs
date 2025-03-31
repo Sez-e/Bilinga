@@ -35,34 +35,43 @@ namespace backend.Controllers
             return Ok(user);
         }
         
-        [HttpPatch("{id}")]
-        public IActionResult Update(int id, [FromBody] UpdateUser updatedUser)
+        [HttpPatch]
+        public async Task<IActionResult> Update([FromBody] UpdateUser updatedUser)
         {
-            var user = _context.Users.Find(id);
+            var userIdClaim = User.FindFirst("id")?.Value;
+            if (userIdClaim == null)
+            {
+                return Unauthorized();
+            }
+
+            var userId = int.Parse(userIdClaim);
+            var user = await _context.Users.FindAsync(userId);
             if (user == null)
             {
                 return NotFound();
             }
-            
-            if (!string.IsNullOrEmpty(updatedUser.Email))
-            {
-                user.Email = updatedUser.Email;
-            }
-            if (!string.IsNullOrEmpty(updatedUser.Username))
-            {
-                user.Username = updatedUser.Username;
-            }
+
             if (!string.IsNullOrEmpty(updatedUser.Password))
             {
                 user.Password = BCrypt.Net.BCrypt.HashPassword(updatedUser.Password);
+                user.IsTemporaryPassword = false;
+            }
+
+            if (!string.IsNullOrEmpty(updatedUser.Email))
+            {
+                user.Email = updatedUser.Email;
             }
             if (!string.IsNullOrEmpty(updatedUser.PhoneNumber))
             {
                 user.PhoneNumber = updatedUser.PhoneNumber;
             }
 
-            _context.SaveChanges();
-            return Ok(user);
+            await _context.SaveChangesAsync();
+            
+            return Ok(new { 
+                message = "User updated successfully",
+                isTemporaryPassword = user.IsTemporaryPassword
+            });
         }
 
 

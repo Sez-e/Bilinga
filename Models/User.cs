@@ -13,5 +13,7 @@ public class User
 
     [StringLength(12)] public string? PhoneNumber { get; set; }
 
-    public int Score { get; set; } 
+    public int Score { get; set; }
+
+    public bool IsTemporaryPassword { get; set; }
 }

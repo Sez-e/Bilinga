@@ -86,14 +86,24 @@ namespace backend.Controllers
                 return BadRequest(ModelState);
             }
 
-            var user = await _context.Users.SingleOrDefaultAsync(u => u.Username == request.Username);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+            if (user == null)
             {
-                return Unauthorized("Неверное имя пользователя или пароль.");
+                return Unauthorized("Invalid username or password");
+            }
+
+            if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
+            {
+                return Unauthorized("Invalid username or password");
             }
 
             var token = _jwtService.GenerateToken(user.Username, user.Id);
-            return Ok(new { Token = token });
+
+            return Ok(new { 
+                token = token,
+                isTemporaryPassword = user.IsTemporaryPassword,
+                message = user.IsTemporaryPassword ? "Please change your temporary password." : null
+            });
         }
 
         public class ForgotPasswordRequest
@@ -106,30 +116,38 @@ namespace backend.Controllers
         [HttpPost("forgot-password")]
         public async Task<IActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
-            if (user == null)
+            try
             {
+                var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
+                if (user == null)
+                {
+                    return Ok(new { message = "If your email is registered, you will receive a temporary password." });
+                }
+
+                var temporaryPassword = _passwordGenerator.GenerateTemporaryPassword();
+                
+                // Обновляем пароль и устанавливаем флаг
+                user.Password = BCrypt.Net.BCrypt.HashPassword(temporaryPassword);
+                user.IsTemporaryPassword = true; // Устанавливаем флаг
+                await _context.SaveChangesAsync();
+
+                var emailBody = $@"
+                    <h2>Восстановление пароля</h2>
+                    <p>Ваш временный пароль: <strong>{temporaryPassword}</strong></p>
+                    <p>Пожалуйста, смените его после входа в систему.</p>";
+
+                await _emailService.SendEmailAsync(
+                    user.Email,
+                    "Восстановление пароля",
+                    emailBody
+                );
+
                 return Ok(new { message = "If your email is registered, you will receive a temporary password." });
             }
-            
-            var temporaryPassword = _passwordGenerator.GenerateTemporaryPassword();
-            
-            user.Password = BCrypt.Net.BCrypt.HashPassword(temporaryPassword);
-            await _context.SaveChangesAsync();
-
-            // Email с временным паролем
-            var emailBody = $@"
-                <h2>Временный пароль</h2>
-                <p>Ваш временный пароль: <strong>{temporaryPassword}</strong></p>
-                <p>Пожалуйста, смените пароль после авторизации.</p>";
-
-            await _emailService.SendEmailAsync(
-                user.Email,
-                "Your Temporary Password",
-                emailBody
-            );
-
-            return Ok(new { message = "If your email is registered, you will receive a temporary password." });
+            catch (Exception ex)
+            {
+                return StatusCode(500, "An error occurred while processing your request.");
+            }
         }
     }
 }
