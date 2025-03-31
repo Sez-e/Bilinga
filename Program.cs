@@ -29,6 +29,7 @@ if (string.IsNullOrWhiteSpace(botToken))
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 builder.Services.AddSingleton(new JwtService(secretKey, issuer, audience));
+builder.Services.AddSingleton<RiddleService>();
 builder.Services.AddSingleton(new TGbot(botToken));
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
