@@ -69,7 +69,7 @@ namespace backend.Controllers
             await _context.SaveChangesAsync();
             
             return Ok(new { 
-                message = "User updated successfully",
+                message = "Пользовательские данные успешно обновлены.",
                 isTemporaryPassword = user.IsTemporaryPassword
             });
         }
@@ -86,7 +86,7 @@ namespace backend.Controllers
 
             _context.Users.Remove(user);
             _context.SaveChanges();
-            return Ok(new { message = "User successfully deleted." });
+            return Ok(new { message = "Пользователь успешно удалён." });
         }
     }
 }

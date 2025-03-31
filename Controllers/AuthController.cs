@@ -89,12 +89,12 @@ namespace backend.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
             if (user == null)
             {
-                return Unauthorized("Invalid username or password");
+                return Unauthorized("Неверное имя пользователя или пароль.");
             }
 
             if (!BCrypt.Net.BCrypt.Verify(request.Password, user.Password))
             {
-                return Unauthorized("Invalid username or password");
+                return Unauthorized("Неверное имя пользователя или пароль.");
             }
 
             var token = _jwtService.GenerateToken(user.Username, user.Id);
@@ -102,7 +102,7 @@ namespace backend.Controllers
             return Ok(new { 
                 token = token,
                 isTemporaryPassword = user.IsTemporaryPassword,
-                message = user.IsTemporaryPassword ? "Please change your temporary password." : null
+                message = user.IsTemporaryPassword ? "Пожалуйста, смените временный пароль." : null
             });
         }
 
@@ -121,7 +121,7 @@ namespace backend.Controllers
                 var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
                 if (user == null)
                 {
-                    return Ok(new { message = "If your email is registered, you will receive a temporary password." });
+                    return Ok(new { message = "Если ваш адрес элекронной почты зарегистрирован, вы получите временный пароль на почту." });
                 }
 
                 var temporaryPassword = _passwordGenerator.GenerateTemporaryPassword();
@@ -142,7 +142,7 @@ namespace backend.Controllers
                     emailBody
                 );
 
-                return Ok(new { message = "If your email is registered, you will receive a temporary password." });
+                return Ok(new { message = "Если ваш адрес элекронной почты зарегистрирован, вы получите временный пароль на почту." });
             }
             catch (Exception ex)
             {

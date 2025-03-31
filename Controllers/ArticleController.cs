@@ -59,14 +59,14 @@ namespace backend.Controllers
                 string.IsNullOrEmpty(createdArticle.Content) || 
                 string.IsNullOrEmpty(createdArticle.Level))
             {
-                return BadRequest("Title, Content and Level are required.");
+                return BadRequest("Для создания статьи необходимо ввести название, содержание и уровень языка.");
             }
 
             // Получаем UserId из контекста пользователя
             var userIdClaim = User.FindFirst("id")?.Value;
             if (userIdClaim == null)
             {
-                return Unauthorized("User is not authenticated.");
+                return Unauthorized("Пользователь не авторизован.");
             }
 
             var userId = int.Parse(userIdClaim);
@@ -75,7 +75,7 @@ namespace backend.Controllers
             var user = _context.Users.Find(userId);
             if (user == null)
             {
-                return BadRequest("User not found.");
+                return BadRequest("Пользователь не найден.");
             }
 
             try
@@ -85,7 +85,7 @@ namespace backend.Controllers
                     Title = createdArticle.Title,
                     Content = createdArticle.Content,
                     Level = createdArticle.Level,
-                    Author = user.Username // Добавляем Author при создании
+                    Author = user.Username
                 };
                 
                 var newArticle = await _articleService.CreateArticleAsync(article, user.Username);
@@ -105,14 +105,14 @@ namespace backend.Controllers
             var userIdClaim = User.FindFirst("id")?.Value;
             if (userIdClaim == null)
             {
-                return Unauthorized("User is not authenticated.");
+                return Unauthorized("Пользователь не авторизован.");
             }
 
             var userId = int.Parse(userIdClaim);
             var user = _context.Users.Find(userId);
             if (user == null)
             {
-                return BadRequest("User not found.");
+                return BadRequest("Пользователь не найден.");
             }
 
             // Проверяем, существует ли статья и является ли пользователь её автором
@@ -126,7 +126,7 @@ namespace backend.Controllers
 
             if (existingArticle.Author != user.Username)
             {
-                return Forbid("You can only update your own articles.");
+                return Forbid("Вы можете редактировать только свои статьи.");
             }
 
             try
@@ -156,14 +156,14 @@ namespace backend.Controllers
             var userIdClaim = User.FindFirst("id")?.Value;
             if (userIdClaim == null)
             {
-                return Unauthorized("User is not authenticated.");
+                return Unauthorized("Пользователь не авторизован.");
             }
 
             var userId = int.Parse(userIdClaim);
             var user = _context.Users.Find(userId);
             if (user == null)
             {
-                return BadRequest("User not found.");
+                return BadRequest("Пользователь не найден.");
             }
 
             // Проверяем, существует ли статья и является ли пользователь её автором
@@ -177,7 +177,7 @@ namespace backend.Controllers
 
             if (existingArticle.Author != user.Username)
             {
-                return Forbid("You can only delete your own articles.");
+                return Forbid("Вы можете удалять только свои статьи.");
             }
 
             try
@@ -185,7 +185,7 @@ namespace backend.Controllers
                 var result = await _articleService.DeleteArticleAsync(id);
                 if (result)
                 {
-                    return Ok(new { message = "Article successfully deleted." });
+                    return Ok(new { message = "Статья успешно удалена." });
                 }
                 return NotFound();
             }

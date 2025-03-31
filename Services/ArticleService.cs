@@ -29,7 +29,6 @@ public class ArticleService
     {
         var articles = await LoadArticlesAsync();
         
-        // Находим максимальный ID и увеличиваем на 1
         int maxId = articles.Max(a => a.Id);
         newArticle.Id = maxId + 1;
         
@@ -49,11 +48,9 @@ public class ArticleService
         
         if (article != null)
         {
-            // Обновляем только разрешенные поля
             article.Title = updatedArticle.Title;
             article.Content = updatedArticle.Content;
             article.Level = updatedArticle.Level;
-            // Author и Id не обновляются
             
             await SaveArticlesAsync(articles);
         }

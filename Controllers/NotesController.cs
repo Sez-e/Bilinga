@@ -40,7 +40,7 @@ namespace backend.Controllers
         {
             if (string.IsNullOrEmpty(createdNote.Title))
             {
-                return BadRequest("Title is required.");
+                return BadRequest("Необходимо название заметки.");
             }
             
             var newNote = new Note
@@ -91,7 +91,7 @@ namespace backend.Controllers
 
             _context.Notes.Remove(note);
             _context.SaveChanges();
-            return Ok(new { message = "Note successfully deleted." });
+            return Ok(new { message = "Заметка успешно удалена." });
         }
     }
 }
