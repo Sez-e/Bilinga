@@ -20,24 +20,58 @@ namespace backend.Services
 
         public string GenerateToken(string username, int userId)
         {
+            var secretKeyBytes = Encoding.UTF8.GetBytes(_secretKey);
+            var key = new SymmetricSecurityKey(secretKeyBytes);
+            
+            if (key.Key.Length < 32)
+            {
+                throw new ArgumentException("Secret key must be at least 32 bytes");
+            }
+
+            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            
             var claims = new[]
             {
                 new Claim(ClaimTypes.Name, username),
+                new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
                 new Claim("id", userId.ToString())
             };
 
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_secretKey));
-            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
-
             var token = new JwtSecurityToken(
-                _issuer,
-                _audience,
-                claims,
-                expires: DateTime.UtcNow.AddMinutes(30),
+                issuer: _issuer,
+                audience: _audience,
+                claims: claims,
+                expires: DateTime.UtcNow.AddHours(24),
                 signingCredentials: credentials
             );
 
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            var tokenString = new JwtSecurityTokenHandler().WriteToken(token);
+            
+            var tokenHandler = new JwtSecurityTokenHandler();
+            try
+            {
+                var validationParameters = new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidIssuer = _issuer,
+                    ValidateAudience = true,
+                    ValidAudience = _audience,
+                    ValidateLifetime = true,
+                    ValidateIssuerSigningKey = true,
+                    IssuerSigningKey = key,
+                    ClockSkew = TimeSpan.Zero
+                };
+
+                tokenHandler.ValidateToken(tokenString, validationParameters, out _);
+                Console.WriteLine("Token validated successfully after generation");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Token validation failed after generation: {ex.Message}");
+                throw;
+            }
+
+            return tokenString;
         }
 
         public ClaimsPrincipal? ValidateToken(string token)

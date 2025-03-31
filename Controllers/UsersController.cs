@@ -2,10 +2,10 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Authorization;
 using backend.Data;
 using backend.Models;
+using System.Security.Claims;
 namespace backend.Controllers
 
 {
-    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class UsersController : ControllerBase
@@ -35,13 +35,22 @@ namespace backend.Controllers
             return Ok(user);
         }
         
+        [Authorize]
         [HttpPatch]
         public async Task<IActionResult> Update([FromBody] UpdateUser updatedUser)
         {
-            var userIdClaim = User.FindFirst("id")?.Value;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                              ?? User.FindFirst("id")?.Value;
+            
             if (userIdClaim == null)
             {
-                return Unauthorized();
+                var debug = new
+                {
+                    IsAuthenticated = User.Identity.IsAuthenticated,
+                    Claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
+                    Headers = Request.Headers["Authorization"].ToString()
+                };
+                return Unauthorized(new { message = "User ID not found", debug });
             }
 
             var userId = int.Parse(userIdClaim);
@@ -74,7 +83,7 @@ namespace backend.Controllers
             });
         }
 
-
+        [Authorize]
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
