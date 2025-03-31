@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using backend.Models;
 using Microsoft.AspNetCore.Authorization;
 
-namespace bili.Controllers
+namespace backend.Controllers
 {
     [Authorize]
     [Route("api/[controller]")]
