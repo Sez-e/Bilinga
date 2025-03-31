@@ -3,6 +3,7 @@ using Microsoft.Extensions.AI;
 using Microsoft.AspNetCore.Authorization;
 using backend.Data;
 using backend.Models;
+using backend.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace backend.Controllers
@@ -13,8 +14,8 @@ namespace backend.Controllers
     {
         private readonly IChatClient _chatClient;
         private readonly AppDbContext _context;
-        private const string WelcomeMessageEn = "Hi! I'm AInga, your English learning assistant. You can ask me any question or just chat with me. I will communicate with you in English. But if something is unclear, you can ask me to translate the message or rephrase it.";
-        private const string WelcomeMessageRu = "Привет! Я AInga, твой помощник в изучении английского языка. Ты можешь задать мне любой вопрос или попросить просто поболтать с тобой. Я буду общаться с тобой на английском языке. Но если тебе что-то непонятно, то ты можешь попросить меня перевести сообщение или переформулировать его.";
+        private const string WelcomeMessageEn = "Hi! I'm AInga, your English learning assistant. You can ask me any question or just chat with me. I will communicate with you in English. But if something is unclear, you can ask me to translate the message or rephrase it. I will also help you construct grammatically and logically correct sentences in English and correct mistakes.";
+        private const string WelcomeMessageRu = "Привет! Я AInga, твой помощник в изучении английского языка. Ты можешь задать мне любой вопрос или попросить просто поболтать с тобой. Я буду общаться с тобой на английском языке. Но если тебе что-то непонятно, то ты можешь попросить меня перевести сообщение или переформулировать его. Я также помогу тебе составлять грамматически и логически правильные предложения на английском и исправлять ошибки.";
 
         public ChatController(AppDbContext context)
         {
@@ -57,50 +58,65 @@ namespace backend.Controllers
         }
 
         [HttpPost("message")]
-        public async Task<IActionResult> SendMessage([FromBody] string userPrompt)
+public async Task<IActionResult> SendMessage([FromBody] string userPrompt)
+{
+    List<ChatMessage> chatHistory = new();
+    
+    // Базовый системный промпт
+    chatHistory.Add(new ChatMessage(ChatRole.System, PromptService.BaseSystemPrompt));
+
+    // Определяем тип запроса пользователя и добавляем соответствующий промпт
+    if (userPrompt.ToLower().Contains("перевед") || userPrompt.ToLower().Contains("translat"))
+    {
+        chatHistory.Add(new ChatMessage(ChatRole.System, PromptService.TranslationPrompt));
+    }
+    else if (userPrompt.ToLower().Contains("грамматик") || userPrompt.ToLower().Contains("grammar"))
+    {
+        chatHistory.Add(new ChatMessage(ChatRole.System, PromptService.GrammarExplanationPrompt));
+    }
+    else if (userPrompt.ToLower().Contains("поговор") || userPrompt.ToLower().Contains("chat"))
+    {
+        chatHistory.Add(new ChatMessage(ChatRole.System, PromptService.ConversationPrompt));
+    }
+    else if (userPrompt.ToLower().Contains("слов") || userPrompt.ToLower().Contains("vocabulary"))
+    {
+        chatHistory.Add(new ChatMessage(ChatRole.System, PromptService.VocabularyPrompt));
+    }
+    else if (userPrompt.ToLower().Contains("произнош") || userPrompt.ToLower().Contains("pronunciation"))
+    {
+        chatHistory.Add(new ChatMessage(ChatRole.System, PromptService.PronunciationPrompt));
+    }
+
+    chatHistory.Add(new ChatMessage(ChatRole.User, userPrompt));
+
+    var response = "";
+    await foreach (var item in _chatClient.GetStreamingResponseAsync(chatHistory))
+    {
+        response += item.Text;
+    }
+
+    // Сохранение истории для авторизованных пользователей
+    if (User.Identity.IsAuthenticated)
+    {
+        var userIdClaim = User.FindFirst("id")?.Value;
+        if (userIdClaim != null)
         {
-            List<ChatMessage> chatHistory = new();
+            var userId = int.Parse(userIdClaim);
+            var chatHistoryEntry = new ChatHistory
+            {
+                UserId = userId,
+                UserMessage = userPrompt,
+                AssistantMessage = response,
+                Timestamp = DateTime.UtcNow
+            };
             
-            // Системный промпт
-            chatHistory.Add(new ChatMessage(ChatRole.System, @"You are AInga, an English learning assistant. 
-            Follow these rules:
-            1. If the user's message is in Russian, respond in English first, then provide a Russian translation.
-            2. If the user asks to translate something, provide Russian version.
-            3. If the user asks to rephrase something, provide a simpler version in English.
-            4. Always be helpful and encouraging in teaching English.
-            5. If the user asks to chat, engage in conversation while helping them practice English."));
-
-            chatHistory.Add(new ChatMessage(ChatRole.User, userPrompt));
-
-            var response = "";
-            await foreach (var item in _chatClient.GetStreamingResponseAsync(chatHistory))
-            {
-                response += item.Text;
-            }
-
-            // Сохранение истории
-            if (User.Identity.IsAuthenticated)
-            {
-                var userIdClaim = User.FindFirst("id")?.Value;
-                if (userIdClaim != null)
-                {
-                    var userId = int.Parse(userIdClaim);
-                    var chatHistoryEntry = new ChatHistory
-                    {
-                        UserId = userId,
-                        UserMessage = userPrompt,
-                        AssistantMessage = response,
-                        Timestamp = DateTime.UtcNow
-                    };
-                    
-                    _context.ChatHistory.Add(chatHistoryEntry);
-                    await _context.SaveChangesAsync();
-                }
-            }
-
-            return Ok(new { response });
+            _context.ChatHistory.Add(chatHistoryEntry);
+            await _context.SaveChangesAsync();
         }
+    }
 
+    return Ok(new { response });
+}
         [HttpGet("history")]
         [Authorize]
         public async Task<IActionResult> GetHistory()
