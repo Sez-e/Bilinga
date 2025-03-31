@@ -109,23 +109,19 @@ namespace backend.Controllers
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null)
             {
-                // Возвращаем OK даже если пользователь не найден (для безопасности)
                 return Ok(new { message = "If your email is registered, you will receive a temporary password." });
             }
-
-            // Генерируем временный пароль
+            
             var temporaryPassword = _passwordGenerator.GenerateTemporaryPassword();
             
-            // Обновляем пароль пользователя
             user.Password = BCrypt.Net.BCrypt.HashPassword(temporaryPassword);
             await _context.SaveChangesAsync();
 
-            // Отправляем email с временным паролем
+            // Email с временным паролем
             var emailBody = $@"
-                <h2>Temporary Password</h2>
-                <p>Your temporary password is: <strong>{temporaryPassword}</strong></p>
-                <p>Please change your password after logging in.</p>
-                <p>If you didn't request a password reset, please contact support immediately.</p>";
+                <h2>Временный пароль</h2>
+                <p>Ваш временный пароль: <strong>{temporaryPassword}</strong></p>
+                <p>Пожалуйста, смените пароль после авторизации.</p>";
 
             await _emailService.SendEmailAsync(
                 user.Email,

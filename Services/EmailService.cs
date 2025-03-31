@@ -9,9 +9,8 @@ namespace backend.Services
         private readonly int _smtpPort;
         private readonly string _fromEmail;
         private readonly string _password;
-        private readonly ILogger<EmailService> _logger;
 
-        public EmailService(ILogger<EmailService> logger)
+        public EmailService()
         {
             _smtpServer = Environment.GetEnvironmentVariable("EMAIL_SMTP_SERVER");
             _fromEmail = Environment.GetEnvironmentVariable("EMAIL_FROM");
@@ -19,45 +18,43 @@ namespace backend.Services
             
             if (!int.TryParse(Environment.GetEnvironmentVariable("EMAIL_SMTP_PORT"), out _smtpPort))
             {
-                _smtpPort = 587; // значение по умолчанию
+                _smtpPort = 587;
             }
 
-            _logger = logger;
+            ValidateConfiguration();
+        }
 
+        private void ValidateConfiguration()
+        {
             if (string.IsNullOrEmpty(_smtpServer) || 
                 string.IsNullOrEmpty(_fromEmail) || 
-                string.IsNullOrEmpty(_password))
+                string.IsNullOrEmpty(_password) || 
+                _smtpPort <= 0)
             {
-                throw new InvalidOperationException("Email configuration is missing. Please check your environment variables.");
+                throw new InvalidOperationException("Email service configuration is invalid.");
             }
         }
 
         public async Task SendEmailAsync(string toEmail, string subject, string body)
         {
-            try
+            var message = new MailMessage
             {
-                var message = new MailMessage
-                {
-                    From = new MailAddress(_fromEmail),
-                    Subject = subject,
-                    Body = body,
-                    IsBodyHtml = true
-                };
-                message.To.Add(new MailAddress(toEmail));
+                From = new MailAddress(_fromEmail),
+                Subject = subject,
+                Body = body,
+                IsBodyHtml = true
+            };
+            message.To.Add(new MailAddress(toEmail));
 
-                using var client = new SmtpClient(_smtpServer, _smtpPort)
-                {
-                    Credentials = new NetworkCredential(_fromEmail, _password),
-                    EnableSsl = true
-                };
-
-                await client.SendMailAsync(message);
-            }
-            catch (Exception ex)
+            using var client = new SmtpClient(_smtpServer, _smtpPort)
             {
-                // Логирование ошибки
-                throw new Exception($"Failed to send email: {ex.Message}");
-            }
+                Credentials = new NetworkCredential(_fromEmail, _password),
+                EnableSsl = true,
+                DeliveryMethod = SmtpDeliveryMethod.Network,
+                Timeout = 30000
+            };
+
+            await client.SendMailAsync(message);
         }
     }
 }
