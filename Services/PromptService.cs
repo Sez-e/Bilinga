@@ -1,6 +1,6 @@
 namespace backend.Services
 {
-    public static class PromptService
+    public class PromptService
     {
         public const string BaseSystemPrompt = @"You are AInga, an English learning assistant. 
         Follow these rules strictly:

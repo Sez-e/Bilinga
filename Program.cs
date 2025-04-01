@@ -55,6 +55,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddSingleton(new JwtService(secretKey, issuer, audience));
 builder.Services.AddSingleton(new TGbot(botToken));
 builder.Services.AddScoped<EmailService>();
+builder.Services.AddScoped<DictionaryService>();
+builder.Services.AddScoped<RiddleService>();
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -109,6 +111,7 @@ builder.Services.AddAuthorization();
 builder.Services.AddControllers();
 builder.Services.AddScoped<ArticleService>();
 builder.Services.AddScoped<PasswordGeneratorService>();
+builder.Services.AddScoped<PromptService>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
